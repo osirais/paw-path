@@ -26,62 +26,82 @@ export default function World() {
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: false });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setClearColor(0x87ceeb); //sky
+    renderer.setPixelRatio(1);
+    renderer.domElement.style.imageRendering = "pixelated";
     mountRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    const groundGeometry = new THREE.PlaneGeometry(20, 20);
-    const groundMaterial = new THREE.MeshStandardMaterial({
-      color: 0x228b22,
-      side: THREE.DoubleSide,
+    const pixelWidth = 128;
+    const pixelHeight = 128;
+
+    const renderTarget = new THREE.WebGLRenderTarget(pixelWidth, pixelHeight, {
+      minFilter: THREE.NearestFilter,
+      magFilter: THREE.NearestFilter,
+      generateMipmaps: false,
+      depthBuffer: true,
     });
-    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+
+    const screenScene = new THREE.Scene();
+    const screenCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+    const screenMaterial = new THREE.MeshBasicMaterial({
+      map: renderTarget.texture,
+    });
+
+    const screenQuad = new THREE.Mesh(
+      new THREE.PlaneGeometry(2, 2),
+      screenMaterial,
+    );
+    screenScene.add(screenQuad);
+
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(20, 20),
+      new THREE.MeshStandardMaterial({
+        color: 0x228b22,
+        side: THREE.DoubleSide,
+      }),
+    );
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
-    const playerGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const playerMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-    const player = new THREE.Mesh(playerGeometry, playerMaterial);
+    const player = new THREE.Mesh(
+      new THREE.BoxGeometry(1, 1, 1),
+      new THREE.MeshStandardMaterial({ color: 0xff0000 }),
+    );
     player.position.y = 0.5;
     scene.add(player);
     playerRef.current = player;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-    scene.add(ambientLight);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
     directionalLight.position.set(5, 5, 5);
     scene.add(directionalLight);
 
-    function handleResize() {
+    const keys = { w: false, a: false, s: false, d: false };
+
+    const handleResize = () => {
       if (!cameraRef.current || !rendererRef.current) return;
       cameraRef.current.aspect = window.innerWidth / window.innerHeight;
       cameraRef.current.updateProjectionMatrix();
       rendererRef.current.setSize(window.innerWidth, window.innerHeight);
-    }
-    window.addEventListener("resize", handleResize);
-
-    const keys = {
-      w: false,
-      a: false,
-      s: false,
-      d: false,
     };
 
-    function handleKeyDown(e: KeyboardEvent) {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() in keys) {
         keys[e.key.toLowerCase() as keyof typeof keys] = true;
       }
-    }
+    };
 
-    function handleKeyUp(e: KeyboardEvent) {
+    const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() in keys) {
         keys[e.key.toLowerCase() as keyof typeof keys] = false;
       }
-    }
+    };
 
+    window.addEventListener("resize", handleResize);
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
 
@@ -102,7 +122,11 @@ export default function World() {
         cameraRef.current.lookAt(playerRef.current.position);
       }
 
+      renderer.setRenderTarget(renderTarget);
       renderer.render(scene, camera);
+
+      renderer.setRenderTarget(null);
+      renderer.render(screenScene, screenCamera);
     }
     animate();
 
