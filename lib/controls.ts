@@ -1,4 +1,4 @@
-import type { MutableRefObject, RefObject } from "react";
+import type { RefObject } from "react";
 import type * as THREE from "three";
 
 export function setupControls(
@@ -7,7 +7,7 @@ export function setupControls(
   rendererRef: RefObject<THREE.WebGLRenderer>,
   yawRef: RefObject<number>,
   pitchRef: RefObject<number>,
-  keysRef: MutableRefObject<{ w: boolean; a: boolean; s: boolean; d: boolean }>,
+  keysRef: RefObject<{ w: boolean; a: boolean; s: boolean; d: boolean }>,
 ) {
   const handleResize = () => {
     if (!cameraRef.current || !rendererRef.current) return;

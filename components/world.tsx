@@ -18,6 +18,7 @@ export default function World({
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const [isPaused, setIsPaused] = useState(false);
+  const [distanceWalked, setDistanceWalked] = useState(0);
 
   const yawRef = useRef(0);
   const pitchRef = useRef(0);
@@ -63,8 +64,7 @@ export default function World({
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
-    const { renderer, renderTarget, screenScene, screenCamera } =
-      setupRenderer(pixelated);
+    const { renderer } = setupRenderer(pixelated);
     mountRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
@@ -147,11 +147,16 @@ export default function World({
     sceneRef,
     keysRef,
     pixelated,
+    distanceWalked,
+    setDistanceWalked,
   });
 
   return (
     <>
       <div ref={mountRef} style={{ width: "100vw", height: "100vh" }} />
+      <div className="fixed top-4 left-4 z-10 rounded-lg bg-black/70 px-4 py-2 font-mono text-sm text-white">
+        Distance: {distanceWalked.toFixed(1)}m
+      </div>
       {isPaused && <PauseMenu onResume={() => setIsPaused(false)} />}
     </>
   );

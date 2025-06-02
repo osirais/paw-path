@@ -1,28 +1,30 @@
 "use client";
 
 import { updateDog } from "@/lib/dog";
-import { useEffect, type MutableRefObject } from "react";
+import { RefObject, useEffect, useRef } from "react";
 import * as THREE from "three";
 
 interface AnimationLoopProps {
   isPaused: boolean;
-  playerRef: MutableRefObject<THREE.Mesh | null>;
-  cameraRef: MutableRefObject<THREE.PerspectiveCamera | null>;
-  leashedBoxRef: MutableRefObject<THREE.Mesh | null>;
-  leashLineRef: MutableRefObject<THREE.Line | null>;
-  dogStateRef: MutableRefObject<{
+  playerRef: RefObject<THREE.Mesh | null>;
+  cameraRef: RefObject<THREE.PerspectiveCamera | null>;
+  leashedBoxRef: RefObject<THREE.Mesh | null>;
+  leashLineRef: RefObject<THREE.Line | null>;
+  dogStateRef: RefObject<{
     model: THREE.Object3D | null;
     wanderDir: THREE.Vector3;
     wanderTimer: number;
     pauseTimer: number;
     isPaused: boolean;
   }>;
-  yawRef: MutableRefObject<number>;
-  pitchRef: MutableRefObject<number>;
-  rendererRef: MutableRefObject<THREE.WebGLRenderer | null>;
-  sceneRef: MutableRefObject<THREE.Scene | null>;
-  keysRef: MutableRefObject<{ w: boolean; a: boolean; s: boolean; d: boolean }>;
+  yawRef: RefObject<number>;
+  pitchRef: RefObject<number>;
+  rendererRef: RefObject<THREE.WebGLRenderer | null>;
+  sceneRef: RefObject<THREE.Scene | null>;
+  keysRef: RefObject<{ w: boolean; a: boolean; s: boolean; d: boolean }>;
   pixelated: boolean;
+  distanceWalked: number;
+  setDistanceWalked: React.Dispatch<React.SetStateAction<number>>;
 }
 
 export function useAnimationLoop({
@@ -38,7 +40,12 @@ export function useAnimationLoop({
   sceneRef,
   keysRef,
   pixelated,
+  distanceWalked,
+  setDistanceWalked,
 }: AnimationLoopProps) {
+  const previousPositionRef = useRef<THREE.Vector3>(new THREE.Vector3());
+  const isFirstFrameRef = useRef(true);
+
   useEffect(() => {
     function animate() {
       requestAnimationFrame(animate);
@@ -46,7 +53,9 @@ export function useAnimationLoop({
       if (isPaused) return;
 
       if (playerRef.current && cameraRef.current) {
-        const moveSpeed = 0.1;
+        const positionBeforeMovement = playerRef.current.position.clone();
+
+        const moveSpeed = 0.001;
         const moveDir = new THREE.Vector3();
         const keys = keysRef.current;
 
@@ -64,6 +73,20 @@ export function useAnimationLoop({
           const dz = moveDir.x * sinYaw + moveDir.z * cosYaw;
           playerRef.current.position.x += dx * moveSpeed;
           playerRef.current.position.z += dz * moveSpeed;
+
+          if (!isFirstFrameRef.current) {
+            const distanceMoved = playerRef.current.position.distanceTo(
+              positionBeforeMovement,
+            );
+            if (distanceMoved > 0) {
+              setDistanceWalked((prev) => prev + distanceMoved);
+            }
+          }
+        }
+
+        if (isFirstFrameRef.current) {
+          previousPositionRef.current.copy(playerRef.current.position);
+          isFirstFrameRef.current = false;
         }
 
         const eyeOffset = new THREE.Vector3(0, 1.6, 0);
@@ -119,5 +142,7 @@ export function useAnimationLoop({
     sceneRef,
     keysRef,
     pixelated,
+    distanceWalked,
+    setDistanceWalked,
   ]);
 }

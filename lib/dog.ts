@@ -1,4 +1,4 @@
-import type { MutableRefObject } from "react";
+import { RefObject } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
@@ -13,7 +13,7 @@ interface DogState {
 export function setupDog(
   scene: THREE.Scene,
   leashedBox: THREE.Mesh,
-  dogStateRef: MutableRefObject<DogState>,
+  dogStateRef: RefObject<DogState>,
 ) {
   const loader = new GLTFLoader();
 
@@ -35,7 +35,7 @@ export function setupDog(
 }
 
 export function updateDog(
-  playerRef: MutableRefObject<THREE.Mesh | null>,
+  playerRef: RefObject<THREE.Mesh | null>,
   leashedBox: THREE.Mesh,
   dogState: DogState,
 ) {
@@ -43,8 +43,8 @@ export function updateDog(
 
   const leashMaxLength = 4;
   const leashStrength = 0.15;
-  const dogSpeed = 0.07;
-  const wanderSpeed = 0.015;
+  const dogSpeed = 0.0007;
+  const wanderSpeed = 0.00015;
   const playerPos = playerRef.current.position;
   const leashedPos = leashedBox.position;
   const leashVec = new THREE.Vector3().subVectors(playerPos, leashedPos);
@@ -67,7 +67,7 @@ export function updateDog(
       ),
     );
     leashedBox.position.add(jitter);
-    dogState.isPaused = false; // Always move if leash is taut
+    dogState.isPaused = false; // always move if leash is taut
     dogState.pauseTimer = 0;
   } else {
     // leash slack: dog may pause or wander
