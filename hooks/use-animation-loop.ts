@@ -1,6 +1,9 @@
 "use client";
 
-import { CHUNK_LENGTH_SIZE } from "@/constants/chunk";
+import {
+  CHUNK_LENGTH_SIZE,
+  CHUNK_VIEW_CONE_DOT_THRESHOLD,
+} from "@/constants/chunk";
 import { updateDog } from "@/lib/dog";
 import { genChunk } from "@/utils/gen-chunk";
 import { RefObject, useEffect, useRef } from "react";
@@ -149,14 +152,48 @@ export function useAnimationLoop({
       // chunk management stuff
 
       // compute player chunk coordinates (2d)
-      const playerChunkX = Math.floor(player.position.x / CHUNK_LENGTH_SIZE);
-      const playerChunkZ = Math.floor(player.position.z / CHUNK_LENGTH_SIZE);
+      const edgeThreshold = CHUNK_LENGTH_SIZE * 0.3;
 
-      // chunks needed: player chunk and one on each side (3x3 grid)
-      const neededChunks: string[] = [];
+      const playerX = player.position.x;
+      const playerZ = player.position.z;
+      const playerChunkX = Math.floor(playerX / CHUNK_LENGTH_SIZE);
+      const playerChunkZ = Math.floor(playerZ / CHUNK_LENGTH_SIZE);
+
+      const neededChunks = new Set<string>();
+
       for (let dz = -1; dz <= 1; dz++) {
         for (let dx = -1; dx <= 1; dx++) {
-          neededChunks.push(chunkKey(playerChunkX + dx, playerChunkZ + dz));
+          neededChunks.add(chunkKey(playerChunkX + dx, playerChunkZ + dz));
+        }
+      }
+
+      const localX = playerX % CHUNK_LENGTH_SIZE;
+      const localZ = playerZ % CHUNK_LENGTH_SIZE;
+
+      const edgeOffsets = [
+        { cond: localX < edgeThreshold, dx: -2, dzRange: [-1, 0, 1] },
+        {
+          cond: localX > CHUNK_LENGTH_SIZE - edgeThreshold,
+          dx: 2,
+          dzRange: [-1, 0, 1],
+        },
+        { cond: localZ < edgeThreshold, dz: -2, dxRange: [-1, 0, 1] },
+        {
+          cond: localZ > CHUNK_LENGTH_SIZE - edgeThreshold,
+          dz: 2,
+          dxRange: [-1, 0, 1],
+        },
+      ];
+
+      for (const { cond, dx, dz, dxRange, dzRange } of edgeOffsets) {
+        if (!cond) continue;
+
+        if (dx !== undefined) {
+          for (const dzVal of dzRange)
+            neededChunks.add(chunkKey(playerChunkX + dx, playerChunkZ + dzVal));
+        } else if (dz !== undefined) {
+          for (const dxVal of dxRange)
+            neededChunks.add(chunkKey(playerChunkX + dxVal, playerChunkZ + dz));
         }
       }
 
@@ -181,11 +218,63 @@ export function useAnimationLoop({
 
       // remove chunks not needed anymore
       for (const [key, chunkGroup] of chunksRef.current.entries()) {
-        if (!neededChunks.includes(key)) {
+        if (!neededChunks.has(key)) {
           scene.remove(chunkGroup);
           chunksRef.current.delete(key);
           console.log("Removed chunk", key);
         }
+      }
+
+      // don't show chunks out of view
+      const playerPos = player.position;
+      const yaw = yawRef.current;
+      const pitch = pitchRef.current;
+      // forward vector from yaw/pitch (same as camera look direction)
+      const forward = new THREE.Vector3(
+        Math.sin(yaw) * Math.cos(pitch),
+        Math.sin(pitch),
+        -Math.cos(yaw) * Math.cos(pitch),
+      );
+
+      for (const chunkGroup of chunksRef.current.values()) {
+        const chunkCenter = chunkGroup.position.clone();
+        const halfSize = CHUNK_LENGTH_SIZE / 2;
+
+        const corners = [
+          new THREE.Vector3(
+            chunkCenter.x - halfSize,
+            chunkCenter.y,
+            chunkCenter.z - halfSize,
+          ),
+          new THREE.Vector3(
+            chunkCenter.x - halfSize,
+            chunkCenter.y,
+            chunkCenter.z + halfSize,
+          ),
+          new THREE.Vector3(
+            chunkCenter.x + halfSize,
+            chunkCenter.y,
+            chunkCenter.z - halfSize,
+          ),
+          new THREE.Vector3(
+            chunkCenter.x + halfSize,
+            chunkCenter.y,
+            chunkCenter.z + halfSize,
+          ),
+        ];
+
+        // check if any corner is in front (dot > threshold)
+        let visible = false;
+        for (const corner of corners) {
+          const toCorner = corner.clone().sub(playerPos).normalize();
+          const dot = forward.dot(toCorner);
+          if (dot > CHUNK_VIEW_CONE_DOT_THRESHOLD) {
+            visible = true;
+            break;
+          }
+        }
+
+        chunkGroup.visible = visible;
       }
 
       if (rendererRef.current && cameraRef.current && sceneRef.current) {
