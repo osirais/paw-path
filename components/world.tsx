@@ -3,7 +3,9 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 
-export default function World() {
+export default function World({
+  pixelated = true,
+}: { pixelated?: boolean } = {}) {
   const mountRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<THREE.Mesh | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -33,32 +35,45 @@ export default function World() {
     const renderer = new THREE.WebGLRenderer({ antialias: false });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(1);
-    renderer.domElement.style.imageRendering = "pixelated";
+    if (pixelated) {
+      renderer.domElement.style.imageRendering = "pixelated";
+    } else {
+      renderer.domElement.style.imageRendering = "";
+    }
     mountRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    const pixelWidth = 128;
-    const pixelHeight = 128;
+    // use render target and screen quad if pixelated
+    let renderTarget: THREE.WebGLRenderTarget | undefined;
+    let screenScene: THREE.Scene | undefined;
+    let screenCamera: THREE.OrthographicCamera | undefined;
+    let screenMaterial: THREE.MeshBasicMaterial | undefined;
+    let screenQuad: THREE.Mesh | undefined;
 
-    const renderTarget = new THREE.WebGLRenderTarget(pixelWidth, pixelHeight, {
-      minFilter: THREE.NearestFilter,
-      magFilter: THREE.NearestFilter,
-      generateMipmaps: false,
-      depthBuffer: true,
-    });
+    if (pixelated) {
+      const pixelWidth = 128;
+      const pixelHeight = 128;
 
-    const screenScene = new THREE.Scene();
-    const screenCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+      renderTarget = new THREE.WebGLRenderTarget(pixelWidth, pixelHeight, {
+        minFilter: THREE.NearestFilter,
+        magFilter: THREE.NearestFilter,
+        generateMipmaps: false,
+        depthBuffer: true,
+      });
 
-    const screenMaterial = new THREE.MeshBasicMaterial({
-      map: renderTarget.texture,
-    });
+      screenScene = new THREE.Scene();
+      screenCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-    const screenQuad = new THREE.Mesh(
-      new THREE.PlaneGeometry(2, 2),
-      screenMaterial,
-    );
-    screenScene.add(screenQuad);
+      screenMaterial = new THREE.MeshBasicMaterial({
+        map: renderTarget.texture,
+      });
+
+      screenQuad = new THREE.Mesh(
+        new THREE.PlaneGeometry(2, 2),
+        screenMaterial,
+      );
+      screenScene.add(screenQuad);
+    }
 
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(20, 20),
@@ -275,11 +290,22 @@ export default function World() {
       ]);
       leashLine.geometry.attributes.position.needsUpdate = true;
 
-      renderer.setRenderTarget(renderTarget);
-      renderer.render(scene, camera);
-
-      renderer.setRenderTarget(null);
-      renderer.render(screenScene, screenCamera);
+      if (
+        pixelated &&
+        renderTarget &&
+        screenScene &&
+        screenCamera &&
+        rendererRef.current &&
+        cameraRef.current &&
+        sceneRef.current
+      ) {
+        renderer.setRenderTarget(renderTarget);
+        renderer.render(scene, camera);
+        renderer.setRenderTarget(null);
+        renderer.render(screenScene, screenCamera);
+      } else {
+        renderer.render(scene, camera);
+      }
     }
     animate();
 
@@ -293,7 +319,7 @@ export default function World() {
       mountRef.current?.removeChild(renderer.domElement);
       scene.clear();
     };
-  }, []);
+  }, [pixelated]);
 
   return <div ref={mountRef} style={{ width: "100vw", height: "100vh" }} />;
 }
