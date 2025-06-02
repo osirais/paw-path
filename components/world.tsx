@@ -120,6 +120,12 @@ export default function World() {
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
 
+    // Dog wander state
+    let dogWanderDir = new THREE.Vector3(1, 0, 0);
+    let dogWanderTimer = 0;
+    let dogPauseTimer = 0;
+    let dogIsPaused = false;
+
     function animate() {
       requestAnimationFrame(animate);
 
@@ -137,25 +143,75 @@ export default function World() {
         cameraRef.current.lookAt(playerRef.current.position);
       }
 
-      // Leash logic
+      // Dog logic
       if (playerRef.current && leashedBox) {
         const leashMaxLength = 4;
         const leashStrength = 0.15;
+        const dogSpeed = 0.07;
+        const wanderSpeed = 0.015; // reduced wander speed
         const playerPos = playerRef.current.position;
         const leashedPos = leashedBox.position;
         const leashVec = new THREE.Vector3().subVectors(playerPos, leashedPos);
         const leashDist = leashVec.length();
+
+        // Always keep dog on ground
+        leashedBox.position.y = 0.5;
+
         if (leashDist > leashMaxLength) {
+          // Leash taut: dog is pulled toward player, with a bit of jitter
           leashVec.normalize();
-          // Pull leashed box toward player
+          const jitter = new THREE.Vector3(
+            (Math.random() - 0.5) * 0.05,
+            0,
+            (Math.random() - 0.5) * 0.05,
+          );
           leashedBox.position.add(
             leashVec.multiplyScalar(
-              (leashDist - leashMaxLength) * leashStrength,
+              (leashDist - leashMaxLength) * leashStrength + dogSpeed,
             ),
           );
+          leashedBox.position.add(jitter);
+          dogIsPaused = false; // Always move if leash is taut
+          dogPauseTimer = 0;
+        } else {
+          // Leash slack: dog may pause or wander
+          if (dogIsPaused) {
+            dogPauseTimer -= 1;
+            // Reduced jitter while paused
+            leashedBox.position.x += (Math.random() - 0.5) * 0.003;
+            leashedBox.position.z += (Math.random() - 0.5) * 0.003;
+            if (dogPauseTimer <= 0) {
+              dogIsPaused = false;
+              dogWanderTimer = 0; // force new wander direction
+            }
+          } else {
+            dogWanderTimer -= 1;
+            if (dogWanderTimer <= 0) {
+              // Randomly decide to pause or wander
+              if (Math.random() < 0.7) {
+                dogIsPaused = true;
+                dogPauseTimer = 180 + Math.random() * 180; // pause 3-6s
+              } else {
+                const angle = Math.random() * Math.PI * 2;
+                dogWanderDir.set(Math.cos(angle), 0, Math.sin(angle));
+                dogWanderTimer = 60 + Math.random() * 90; // wander 1-2.5s
+              }
+            }
+            if (!dogIsPaused) {
+              // Move in wander direction, but don't stray too far from player
+              const toPlayer = new THREE.Vector3().subVectors(
+                playerPos,
+                leashedBox.position,
+              );
+              if (toPlayer.length() > leashMaxLength * 0.8) {
+                dogWanderDir.lerp(toPlayer.normalize(), 0.1);
+              }
+              leashedBox.position.add(
+                dogWanderDir.clone().multiplyScalar(wanderSpeed),
+              );
+            }
+          }
         }
-        // Optionally: make leashed box "follow" a bit for realism
-        // leashedBox.position.lerp(playerPos, 0.01);
       }
 
       // Update leash line
