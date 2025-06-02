@@ -38,6 +38,7 @@ export function updateDog(
   playerRef: RefObject<THREE.Mesh | null>,
   leashedBox: THREE.Mesh,
   dogState: DogState,
+  playerMovementDirection?: THREE.Vector3,
 ) {
   if (!playerRef.current) return;
 
@@ -50,8 +51,12 @@ export function updateDog(
   const leashVec = new THREE.Vector3().subVectors(playerPos, leashedPos);
   const leashDist = leashVec.length();
 
+  const previousDogPosition = leashedBox.position.clone();
+
   // always keep dog on ground
   leashedBox.position.y = 0.5;
+
+  const dogMovementDirection = new THREE.Vector3();
 
   if (leashDist > leashMaxLength) {
     // leash taut: dog is pulled toward player, with a bit of jitter
@@ -66,9 +71,14 @@ export function updateDog(
         (leashDist - leashMaxLength) * leashStrength + dogSpeed,
       ),
     );
-    leashedBox.position.add(jitter);
+    const movement = leashVec.multiplyScalar(
+      (leashDist - leashMaxLength) * leashStrength + dogSpeed,
+    );
+    leashedBox.position.add(movement);
     dogState.isPaused = false; // always move if leash is taut
     dogState.pauseTimer = 0;
+
+    dogMovementDirection.copy(movement).normalize();
   } else {
     // leash slack: dog may pause or wander
     if (dogState.isPaused) {
@@ -79,6 +89,10 @@ export function updateDog(
       if (dogState.pauseTimer <= 0) {
         dogState.isPaused = false;
         dogState.wanderTimer = 0; // force new wander direction
+      }
+
+      if (playerMovementDirection && playerMovementDirection.lengthSq() > 0) {
+        dogMovementDirection.copy(playerMovementDirection);
       }
     } else {
       dogState.wanderTimer -= 1;
@@ -102,16 +116,31 @@ export function updateDog(
         if (toPlayer.length() > leashMaxLength * 0.8) {
           dogState.wanderDir.lerp(toPlayer.normalize(), 0.1);
         }
-        leashedBox.position.add(
-          dogState.wanderDir.clone().multiplyScalar(wanderSpeed),
-        );
+
+        const movement = dogState.wanderDir.clone().multiplyScalar(wanderSpeed);
+        leashedBox.position.add(movement);
+
+        // dog faces its wander direction, but if player is moving, face player's direction
+        if (playerMovementDirection && playerMovementDirection.lengthSq() > 0) {
+          dogMovementDirection.copy(playerMovementDirection);
+        } else {
+          dogMovementDirection.copy(dogState.wanderDir);
+        }
       }
     }
   }
 
-  // update dog model position
+  // update dog model position & rotation
   if (dogState.model) {
     dogState.model.position.copy(leashedBox.position);
     dogState.model.position.y = 0;
+
+    if (dogMovementDirection.lengthSq() > 0) {
+      const targetRotation = Math.atan2(
+        dogMovementDirection.x,
+        dogMovementDirection.z,
+      );
+      dogState.model.rotation.y = targetRotation;
+    }
   }
 }

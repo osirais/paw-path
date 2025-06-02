@@ -52,6 +52,8 @@ export function useAnimationLoop({
 
       if (isPaused) return;
 
+      let playerMovementDirection: THREE.Vector3 | undefined;
+
       if (playerRef.current && cameraRef.current) {
         const positionBeforeMovement = playerRef.current.position.clone();
 
@@ -73,6 +75,9 @@ export function useAnimationLoop({
           const dz = moveDir.x * sinYaw + moveDir.z * cosYaw;
           playerRef.current.position.x += dx * moveSpeed;
           playerRef.current.position.z += dz * moveSpeed;
+
+          // store the movement direction (for dog)
+          playerMovementDirection = new THREE.Vector3(dx, 0, dz).normalize();
 
           if (!isFirstFrameRef.current) {
             const distanceMoved = playerRef.current.position.distanceTo(
@@ -108,7 +113,12 @@ export function useAnimationLoop({
       }
 
       if (leashedBoxRef.current && playerRef.current) {
-        updateDog(playerRef, leashedBoxRef.current, dogStateRef.current);
+        updateDog(
+          playerRef,
+          leashedBoxRef.current,
+          dogStateRef.current,
+          playerMovementDirection,
+        );
       }
 
       if (leashLineRef.current && playerRef.current && leashedBoxRef.current) {
