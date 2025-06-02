@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import PauseMenu from "@/components/pause-menu";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
@@ -12,6 +13,7 @@ export default function World({
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
 
   // Camera state refs
   const yawRef = useRef(0);
@@ -21,6 +23,16 @@ export default function World({
     if (!mountRef.current) return;
 
     const scene = new THREE.Scene();
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Tab") {
+        setIsPaused((prev) => !prev);
+        if (document.pointerLockElement) {
+          document.exitPointerLock();
+        }
+      }
+    });
+
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(
@@ -188,6 +200,8 @@ export default function World({
     function animate() {
       requestAnimationFrame(animate);
 
+      if (isPaused) return;
+
       if (playerRef.current && cameraRef.current) {
         const moveSpeed = 0.1;
         // Move relative to camera yaw
@@ -347,5 +361,10 @@ export default function World({
     };
   }, [pixelated]);
 
-  return <div ref={mountRef} style={{ width: "100vw", height: "100vh" }} />;
+  return (
+    <>
+      <div ref={mountRef} style={{ width: "100vw", height: "100vh" }} />
+      {isPaused && <PauseMenu onResume={() => setIsPaused(false)} />}
+    </>
+  );
 }
