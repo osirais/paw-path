@@ -74,6 +74,21 @@ export default function World() {
     scene.add(player);
     playerRef.current = player;
 
+    const leashedBox = new THREE.Mesh(
+      new THREE.BoxGeometry(1, 1, 1),
+      new THREE.MeshStandardMaterial({ color: 0x0000ff }),
+    );
+    leashedBox.position.set(3, 0.5, 0);
+    scene.add(leashedBox);
+
+    const leashGeometry = new THREE.BufferGeometry().setFromPoints([
+      player.position.clone(),
+      leashedBox.position.clone(),
+    ]);
+    const leashMaterial = new THREE.LineBasicMaterial({ color: 0x000000 });
+    const leashLine = new THREE.Line(leashGeometry, leashMaterial);
+    scene.add(leashLine);
+
     scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
@@ -121,6 +136,36 @@ export default function World() {
           .add(cameraOffset);
         cameraRef.current.lookAt(playerRef.current.position);
       }
+
+      // Leash logic
+      if (playerRef.current && leashedBox) {
+        const leashMaxLength = 4;
+        const leashStrength = 0.15;
+        const playerPos = playerRef.current.position;
+        const leashedPos = leashedBox.position;
+        const leashVec = new THREE.Vector3().subVectors(playerPos, leashedPos);
+        const leashDist = leashVec.length();
+        if (leashDist > leashMaxLength) {
+          leashVec.normalize();
+          // Pull leashed box toward player
+          leashedBox.position.add(
+            leashVec.multiplyScalar(
+              (leashDist - leashMaxLength) * leashStrength,
+            ),
+          );
+        }
+        // Optionally: make leashed box "follow" a bit for realism
+        // leashedBox.position.lerp(playerPos, 0.01);
+      }
+
+      // Update leash line
+      leashLine.geometry.setFromPoints([
+        playerRef.current
+          ? playerRef.current.position.clone()
+          : new THREE.Vector3(),
+        leashedBox.position.clone(),
+      ]);
+      leashLine.geometry.attributes.position.needsUpdate = true;
 
       renderer.setRenderTarget(renderTarget);
       renderer.render(scene, camera);
