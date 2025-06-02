@@ -17,6 +17,9 @@ export default function World({
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const renderTargetRef = useRef<THREE.WebGLRenderTarget | null>(null);
+  const screenSceneRef = useRef<THREE.Scene | null>(null);
+  const screenCameraRef = useRef<THREE.OrthographicCamera | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [distanceWalked, setDistanceWalked] = useState(0);
 
@@ -51,7 +54,7 @@ export default function World({
     });
 
     // setup scene, camera, and renderer
-    const { scene, ground } = setupScene();
+    const { scene } = setupScene();
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(
@@ -64,7 +67,14 @@ export default function World({
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
-    const { renderer } = setupRenderer(pixelated);
+    const { renderer, renderTarget, screenScene, screenCamera } =
+      setupRenderer(pixelated);
+
+    rendererRef.current = renderer;
+    renderTargetRef.current = renderTarget ?? null;
+    screenSceneRef.current = screenScene ?? null;
+    screenCameraRef.current = screenCamera ?? null;
+
     mountRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
@@ -144,6 +154,9 @@ export default function World({
     yawRef,
     pitchRef,
     rendererRef,
+    renderTargetRef,
+    screenSceneRef,
+    screenCameraRef,
     sceneRef,
     keysRef,
     pixelated,

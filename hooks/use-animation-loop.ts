@@ -20,6 +20,9 @@ interface AnimationLoopProps {
   yawRef: RefObject<number>;
   pitchRef: RefObject<number>;
   rendererRef: RefObject<THREE.WebGLRenderer | null>;
+  renderTargetRef: RefObject<THREE.WebGLRenderTarget | null>;
+  screenSceneRef: RefObject<THREE.Scene | null>;
+  screenCameraRef: RefObject<THREE.OrthographicCamera | null>;
   sceneRef: RefObject<THREE.Scene | null>;
   keysRef: RefObject<{ w: boolean; a: boolean; s: boolean; d: boolean }>;
   pixelated: boolean;
@@ -37,6 +40,9 @@ export function useAnimationLoop({
   yawRef,
   pitchRef,
   rendererRef,
+  renderTargetRef,
+  screenSceneRef,
+  screenCameraRef,
   sceneRef,
   keysRef,
   pixelated,
@@ -130,10 +136,24 @@ export function useAnimationLoop({
       }
 
       if (rendererRef.current && cameraRef.current && sceneRef.current) {
-        if (pixelated) {
-          rendererRef.current.render(sceneRef.current, cameraRef.current);
+        const renderer = rendererRef.current;
+
+        if (
+          pixelated &&
+          renderTargetRef.current &&
+          screenSceneRef.current &&
+          screenCameraRef.current
+        ) {
+          // pixelated
+          renderer.setRenderTarget(renderTargetRef.current);
+          renderer.render(sceneRef.current, cameraRef.current);
+
+          renderer.setRenderTarget(null);
+          renderer.render(screenSceneRef.current, screenCameraRef.current);
         } else {
-          rendererRef.current.render(sceneRef.current, cameraRef.current);
+          // normal high-res render
+          renderer.setRenderTarget(null);
+          renderer.render(sceneRef.current, cameraRef.current);
         }
       }
     }

@@ -3,7 +3,7 @@ import World from "@/components/world";
 export default function Home() {
   return (
     <main>
-      <World />
+      <World pixelated={true} />
     </main>
   );
 }
