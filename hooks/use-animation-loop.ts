@@ -1,6 +1,8 @@
 "use client";
 
+import { CHUNK_LENGTH_SIZE } from "@/constants/chunk";
 import { updateDog } from "@/lib/dog";
+import { genChunk } from "@/utils/gen-chunk";
 import { RefObject, useEffect, useRef } from "react";
 import * as THREE from "three";
 
@@ -52,16 +54,26 @@ export function useAnimationLoop({
   const previousPositionRef = useRef<THREE.Vector3>(new THREE.Vector3());
   const isFirstFrameRef = useRef(true);
 
+  const chunksRef = useRef<Map<string, THREE.Group>>(new Map());
+
   useEffect(() => {
+    function chunkKey(x: number, z: number) {
+      return `${x}_${z}`;
+    }
+
     function animate() {
       requestAnimationFrame(animate);
 
       if (isPaused) return;
 
+      const scene = sceneRef.current;
+      const player = playerRef.current;
+      if (!scene || !player) return;
+
       let playerMovementDirection: THREE.Vector3 | undefined;
 
-      if (playerRef.current && cameraRef.current) {
-        const positionBeforeMovement = playerRef.current.position.clone();
+      {
+        const positionBeforeMovement = player.position.clone();
 
         const moveSpeed = 0.001;
         const moveDir = new THREE.Vector3();
@@ -79,14 +91,13 @@ export function useAnimationLoop({
           const sinYaw = Math.sin(yaw);
           const dx = moveDir.x * cosYaw - moveDir.z * sinYaw;
           const dz = moveDir.x * sinYaw + moveDir.z * cosYaw;
-          playerRef.current.position.x += dx * moveSpeed;
-          playerRef.current.position.z += dz * moveSpeed;
+          player.position.x += dx * moveSpeed;
+          player.position.z += dz * moveSpeed;
 
-          // store the movement direction (for dog)
           playerMovementDirection = new THREE.Vector3(dx, 0, dz).normalize();
 
           if (!isFirstFrameRef.current) {
-            const distanceMoved = playerRef.current.position.distanceTo(
+            const distanceMoved = player.position.distanceTo(
               positionBeforeMovement,
             );
             if (distanceMoved > 0) {
@@ -96,15 +107,15 @@ export function useAnimationLoop({
         }
 
         if (isFirstFrameRef.current) {
-          previousPositionRef.current.copy(playerRef.current.position);
+          previousPositionRef.current.copy(player.position);
           isFirstFrameRef.current = false;
         }
 
         const eyeOffset = new THREE.Vector3(0, 1.6, 0);
-        cameraRef.current.position
-          .copy(playerRef.current.position)
+        cameraRef
+          .current!.position.copy(player.position)
           .add(eyeOffset)
-          .setY(playerRef.current.position.y + 1.6);
+          .setY(player.position.y + 1.6);
 
         const yaw = yawRef.current;
         const pitch = pitchRef.current;
@@ -113,8 +124,8 @@ export function useAnimationLoop({
           Math.sin(pitch),
           -Math.cos(yaw) * Math.cos(pitch),
         );
-        cameraRef.current.lookAt(
-          cameraRef.current.position.clone().add(lookDir),
+        cameraRef.current!.lookAt(
+          cameraRef.current!.position.clone().add(lookDir),
         );
       }
 
@@ -135,6 +146,48 @@ export function useAnimationLoop({
         leashLineRef.current.geometry.attributes.position.needsUpdate = true;
       }
 
+      // chunk management stuff
+
+      // compute player chunk coordinates (2d)
+      const playerChunkX = Math.floor(player.position.x / CHUNK_LENGTH_SIZE);
+      const playerChunkZ = Math.floor(player.position.z / CHUNK_LENGTH_SIZE);
+
+      // chunks needed: player chunk and one on each side (3x3 grid)
+      const neededChunks: string[] = [];
+      for (let dz = -1; dz <= 1; dz++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          neededChunks.push(chunkKey(playerChunkX + dx, playerChunkZ + dz));
+        }
+      }
+
+      // create chunks if missing
+      for (const key of neededChunks) {
+        if (!chunksRef.current.has(key)) {
+          const [xStr, zStr] = key.split("_");
+          const x = parseInt(xStr);
+          const z = parseInt(zStr);
+
+          const chunkGroup = genChunk();
+          chunkGroup.position.set(
+            x * CHUNK_LENGTH_SIZE,
+            0,
+            z * CHUNK_LENGTH_SIZE,
+          );
+          scene.add(chunkGroup);
+          chunksRef.current.set(key, chunkGroup);
+          console.log("Created chunk at", x, z);
+        }
+      }
+
+      // remove chunks not needed anymore
+      for (const [key, chunkGroup] of chunksRef.current.entries()) {
+        if (!neededChunks.includes(key)) {
+          scene.remove(chunkGroup);
+          chunksRef.current.delete(key);
+          console.log("Removed chunk", key);
+        }
+      }
+
       if (rendererRef.current && cameraRef.current && sceneRef.current) {
         const renderer = rendererRef.current;
 
@@ -144,14 +197,12 @@ export function useAnimationLoop({
           screenSceneRef.current &&
           screenCameraRef.current
         ) {
-          // pixelated
           renderer.setRenderTarget(renderTargetRef.current);
           renderer.render(sceneRef.current, cameraRef.current);
 
           renderer.setRenderTarget(null);
           renderer.render(screenSceneRef.current, screenCameraRef.current);
         } else {
-          // normal high-res render
           renderer.setRenderTarget(null);
           renderer.render(sceneRef.current, cameraRef.current);
         }
@@ -169,6 +220,9 @@ export function useAnimationLoop({
     yawRef,
     pitchRef,
     rendererRef,
+    renderTargetRef,
+    screenSceneRef,
+    screenCameraRef,
     sceneRef,
     keysRef,
     pixelated,
