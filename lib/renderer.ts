@@ -19,8 +19,8 @@ export function setupRenderer(pixelated: boolean) {
   let screenQuad: THREE.Mesh | undefined;
 
   if (pixelated) {
-    const pixelWidth = 128;
-    const pixelHeight = 128;
+    const pixelWidth = 256;
+    const pixelHeight = 256;
 
     renderTarget = new THREE.WebGLRenderTarget(pixelWidth, pixelHeight, {
       minFilter: THREE.NearestFilter,
