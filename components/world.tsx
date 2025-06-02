@@ -2,9 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 export default function World({
-  pixelated = true,
+  pixelated = false,
 }: { pixelated?: boolean } = {}) {
   const mountRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<THREE.Mesh | null>(null);
@@ -168,6 +169,22 @@ export default function World({
     let dogPauseTimer = 0;
     let dogIsPaused = false;
 
+    const loader = new GLTFLoader();
+    let dogModel: THREE.Object3D | null = null;
+    loader.load(
+      "/russell_terrier.glb",
+      (gltf) => {
+        dogModel = gltf.scene;
+        dogModel.scale.set(0.5, 0.5, 0.5);
+        dogModel.position.copy(leashedBox.position);
+        scene.add(dogModel);
+      },
+      undefined,
+      (error) => {
+        console.error("Error loading russell_terrier.glb:", error);
+      },
+    );
+
     function animate() {
       requestAnimationFrame(animate);
 
@@ -290,6 +307,12 @@ export default function World({
       ]);
       leashLine.geometry.attributes.position.needsUpdate = true;
 
+      // put dog model @ leashedBox
+      if (dogModel) {
+        dogModel.position.copy(leashedBox.position);
+        dogModel.position.y = 0;
+      }
+
       if (
         pixelated &&
         renderTarget &&
@@ -318,6 +341,9 @@ export default function World({
       mountRef.current?.removeEventListener("click", handleClick);
       mountRef.current?.removeChild(renderer.domElement);
       scene.clear();
+      if (dogModel) {
+        scene.remove(dogModel);
+      }
     };
   }, [pixelated]);
 
