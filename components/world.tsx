@@ -10,6 +10,10 @@ export default function World() {
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
 
+  // Camera state refs
+  const yawRef = useRef(0);
+  const pitchRef = useRef(0);
+
   useEffect(() => {
     if (!mountRef.current) return;
 
@@ -67,18 +71,19 @@ export default function World() {
     scene.add(ground);
 
     const player = new THREE.Mesh(
-      new THREE.BoxGeometry(1, 1, 1),
+      new THREE.BoxGeometry(1, 2, 1),
       new THREE.MeshStandardMaterial({ color: 0xff0000 }),
     );
-    player.position.y = 0.5;
-    scene.add(player);
+    player.position.y = 1; // half of height
+    // don't render player
+    // scene.add(player);
     playerRef.current = player;
 
     const leashedBox = new THREE.Mesh(
       new THREE.BoxGeometry(1, 1, 1),
       new THREE.MeshStandardMaterial({ color: 0x0000ff }),
     );
-    leashedBox.position.set(3, 0.5, 0);
+    leashedBox.position.set(3, 0.5, 0); // half of height
     scene.add(leashedBox);
 
     const leashGeometry = new THREE.BufferGeometry().setFromPoints([
@@ -116,9 +121,31 @@ export default function World() {
       }
     };
 
+    // Update yaw and pitch
+    const handleMouseMove = (e: MouseEvent) => {
+      if (document.pointerLockElement === mountRef.current) {
+        const sensitivity = 0.002;
+        yawRef.current += e.movementX * sensitivity;
+        pitchRef.current -= e.movementY * sensitivity;
+        const maxPitch = Math.PI / 2 - 0.05;
+        pitchRef.current = Math.max(
+          -maxPitch,
+          Math.min(maxPitch, pitchRef.current),
+        );
+      }
+    };
+
+    const handleClick = () => {
+      mountRef.current?.requestPointerLock();
+    };
+
     window.addEventListener("resize", handleResize);
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("pointerlockchange", () => {});
+
+    mountRef.current.addEventListener("click", handleClick);
 
     // Dog wander state
     let dogWanderDir = new THREE.Vector3(1, 0, 0);
@@ -131,16 +158,42 @@ export default function World() {
 
       if (playerRef.current && cameraRef.current) {
         const moveSpeed = 0.1;
-        if (keys.w) playerRef.current.position.z -= moveSpeed;
-        if (keys.s) playerRef.current.position.z += moveSpeed;
-        if (keys.a) playerRef.current.position.x -= moveSpeed;
-        if (keys.d) playerRef.current.position.x += moveSpeed;
+        // Move relative to camera yaw
+        let moveDir = new THREE.Vector3();
+        if (keys.w) moveDir.z -= 1;
+        if (keys.s) moveDir.z += 1;
+        if (keys.a) moveDir.x -= 1;
+        if (keys.d) moveDir.x += 1;
+        if (moveDir.lengthSq() > 0) {
+          moveDir.normalize();
+          // Rotate moveDir by yaw
+          const yaw = yawRef.current;
+          const cosYaw = Math.cos(yaw);
+          const sinYaw = Math.sin(yaw);
+          const dx = moveDir.x * cosYaw - moveDir.z * sinYaw;
+          const dz = moveDir.x * sinYaw + moveDir.z * cosYaw;
+          playerRef.current.position.x += dx * moveSpeed;
+          playerRef.current.position.z += dz * moveSpeed;
+        }
 
-        const cameraOffset = new THREE.Vector3(0, 5, 10);
+        // Camera position and look
+        const eyeOffset = new THREE.Vector3(0, 1.6, 0);
         cameraRef.current.position
           .copy(playerRef.current.position)
-          .add(cameraOffset);
-        cameraRef.current.lookAt(playerRef.current.position);
+          .add(eyeOffset)
+          .setY(playerRef.current.position.y + 1.6);
+
+        // Calculate look direction from yaw/pitch
+        const yaw = yawRef.current;
+        const pitch = pitchRef.current;
+        const lookDir = new THREE.Vector3(
+          Math.sin(yaw) * Math.cos(pitch),
+          Math.sin(pitch),
+          -Math.cos(yaw) * Math.cos(pitch),
+        );
+        cameraRef.current.lookAt(
+          cameraRef.current.position.clone().add(lookDir),
+        );
       }
 
       // Dog logic
@@ -148,7 +201,7 @@ export default function World() {
         const leashMaxLength = 4;
         const leashStrength = 0.15;
         const dogSpeed = 0.07;
-        const wanderSpeed = 0.015; // reduced wander speed
+        const wanderSpeed = 0.015;
         const playerPos = playerRef.current.position;
         const leashedPos = leashedBox.position;
         const leashVec = new THREE.Vector3().subVectors(playerPos, leashedPos);
@@ -214,7 +267,6 @@ export default function World() {
         }
       }
 
-      // Update leash line
       leashLine.geometry.setFromPoints([
         playerRef.current
           ? playerRef.current.position.clone()
@@ -235,6 +287,9 @@ export default function World() {
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("pointerlockchange", () => {});
+      mountRef.current?.removeEventListener("click", handleClick);
       mountRef.current?.removeChild(renderer.domElement);
       scene.clear();
     };
