@@ -1,3 +1,4 @@
+import { genChunk } from "@/utils/gen-chunk";
 import * as THREE from "three";
 
 export function setupRenderer(pixelated: boolean) {
@@ -28,6 +29,28 @@ export function setupRenderer(pixelated: boolean) {
       generateMipmaps: false,
       depthBuffer: true,
     });
+
+    const pixelScene = new THREE.Scene();
+    const chunk = genChunk();
+    pixelScene.add(chunk);
+
+    const pixelCamera = new THREE.PerspectiveCamera(
+      60,
+      pixelWidth / pixelHeight,
+      0.1,
+      1000,
+    );
+    pixelCamera.position.set(100, 100, 100);
+    pixelCamera.lookAt(0, 0, 0);
+
+    pixelScene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+    dirLight.position.set(50, 100, 50);
+    pixelScene.add(dirLight);
+
+    renderer.setRenderTarget(renderTarget);
+    renderer.render(pixelScene, pixelCamera);
+    renderer.setRenderTarget(null);
 
     screenScene = new THREE.Scene();
     screenCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
