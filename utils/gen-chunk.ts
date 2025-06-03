@@ -10,78 +10,72 @@ import {
 import { rng } from "@/utils/rng";
 import * as THREE from "three";
 
+const sidewalkInset = 4;
+const grassInset = 3;
+const treeMargin = 1;
+const buildingMargin = 1;
+
+const sidewalkSize = CHUNK_LENGTH_SIZE - sidewalkInset * 2;
+const grassSize = sidewalkSize - grassInset * 2;
+
+const streetGeometry = new THREE.PlaneGeometry(
+  CHUNK_LENGTH_SIZE,
+  CHUNK_LENGTH_SIZE,
+);
+const sidewalkGeometry = new THREE.PlaneGeometry(sidewalkSize, sidewalkSize);
+const grassGeometry = new THREE.PlaneGeometry(grassSize, grassSize);
+const trunkGeometry = new THREE.CylinderGeometry(0.15, 0.15, 1.5);
+const leavesGeometry = new THREE.ConeGeometry(0.7, 1.8, 8);
+
+const streetMaterial = new THREE.MeshStandardMaterial({
+  color: COLOR_STREET,
+  side: THREE.DoubleSide,
+});
+const sidewalkMaterial = new THREE.MeshStandardMaterial({
+  color: COLOR_SIDEWALK,
+  side: THREE.DoubleSide,
+});
+const grassMaterial = new THREE.MeshStandardMaterial({
+  color: COLOR_GROUND,
+  side: THREE.DoubleSide,
+});
+const trunkMaterial = new THREE.MeshStandardMaterial({ color: COLOR_TRUNK });
+const leavesMaterial = new THREE.MeshStandardMaterial({ color: COLOR_LEAVES });
+const buildingMaterial = new THREE.MeshStandardMaterial({
+  color: COLOR_BUILDING,
+});
+
 export function genChunk() {
   const group = new THREE.Group();
-  const half = CHUNK_LENGTH_SIZE / 2;
 
-  // street - full chunk size (bottom plane)
-  const street = new THREE.Mesh(
-    new THREE.PlaneGeometry(CHUNK_LENGTH_SIZE, CHUNK_LENGTH_SIZE),
-    new THREE.MeshStandardMaterial({
-      color: COLOR_STREET,
-      side: THREE.DoubleSide,
-    }),
-  );
+  const street = new THREE.Mesh(streetGeometry, streetMaterial);
   street.rotation.x = -Math.PI / 2;
   group.add(street);
 
-  // sidewalk size smaller than chunk
-  const sidewalkInset = 4;
-  const sidewalkSize = CHUNK_LENGTH_SIZE - sidewalkInset * 2;
-
-  // sidewalk - smaller square on top of street
-  const sidewalk = new THREE.Mesh(
-    new THREE.PlaneGeometry(sidewalkSize, sidewalkSize),
-    new THREE.MeshStandardMaterial({
-      color: COLOR_SIDEWALK,
-      side: THREE.DoubleSide,
-    }),
-  );
+  const sidewalk = new THREE.Mesh(sidewalkGeometry, sidewalkMaterial);
   sidewalk.rotation.x = -Math.PI / 2;
-  sidewalk.position.y = 0.01; // slightly above street
+  sidewalk.position.y = 0.01;
   group.add(sidewalk);
 
-  // grass size smaller than sidewalk
-  const grassInset = 3;
-  const grassSize = sidewalkSize - grassInset * 2;
-
-  // grass - smaller square inside sidewalk
-  const grass = new THREE.Mesh(
-    new THREE.PlaneGeometry(grassSize, grassSize),
-    new THREE.MeshStandardMaterial({
-      color: COLOR_GROUND,
-      side: THREE.DoubleSide,
-    }),
-  );
+  const grass = new THREE.Mesh(grassGeometry, grassMaterial);
   grass.rotation.x = -Math.PI / 2;
-  grass.position.y = 0.02; // slightly above sidewalk
+  grass.position.y = 0.02;
   group.add(grass);
 
-  // trees only inside grass area
   for (let i = 0; i < 5; i++) {
-    const trunk = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.15, 0.15, 1.5),
-      new THREE.MeshStandardMaterial({ color: COLOR_TRUNK }),
-    );
-
-    const leaves = new THREE.Mesh(
-      new THREE.ConeGeometry(0.7, 1.8, 8),
-      new THREE.MeshStandardMaterial({ color: COLOR_LEAVES }),
-    );
-
-    const margin = 1;
-    const x = rng(-grassSize / 2 + margin, grassSize / 2 - margin);
-    const z = rng(-grassSize / 2 + margin, grassSize / 2 - margin);
+    const x = rng(-grassSize / 2 + treeMargin, grassSize / 2 - treeMargin);
+    const z = rng(-grassSize / 2 + treeMargin, grassSize / 2 - treeMargin);
     const y = 0.75;
 
+    const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
     trunk.position.set(x, y, z);
-    leaves.position.set(x, y + 1.5, z);
-
     group.add(trunk);
+
+    const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
+    leaves.position.set(x, y + 1.5, z);
     group.add(leaves);
   }
 
-  // buildings only inside grass area
   for (let i = 0; i < 2; i++) {
     const width = rng(1.5, 3);
     const height = rng(3, 8);
@@ -89,17 +83,16 @@ export function genChunk() {
 
     const building = new THREE.Mesh(
       new THREE.BoxGeometry(width, height, depth),
-      new THREE.MeshStandardMaterial({ color: COLOR_BUILDING }),
+      buildingMaterial,
     );
 
-    const margin = 1;
     const x = rng(
-      -grassSize / 2 + width / 2 + margin,
-      grassSize / 2 - width / 2 - margin,
+      -grassSize / 2 + width / 2 + buildingMargin,
+      grassSize / 2 - width / 2 - buildingMargin,
     );
     const z = rng(
-      -grassSize / 2 + depth / 2 + margin,
-      grassSize / 2 - depth / 2 - margin,
+      -grassSize / 2 + depth / 2 + buildingMargin,
+      grassSize / 2 - depth / 2 - buildingMargin,
     );
     const y = height / 2;
 
