@@ -51,7 +51,7 @@ export function updateDog(
   const leashVec = new THREE.Vector3().subVectors(playerPos, leashedPos);
   const leashDist = leashVec.length();
 
-  const previousDogPosition = leashedBox.position.clone();
+  // const previousDogPosition = leashedBox.position.clone();
 
   // always keep dog on ground
   leashedBox.position.y = 0.5;
@@ -61,11 +61,11 @@ export function updateDog(
   if (leashDist > leashMaxLength) {
     // leash taut: dog is pulled toward player, with a bit of jitter
     leashVec.normalize();
-    const jitter = new THREE.Vector3(
-      (Math.random() - 0.5) * 0.05,
-      0,
-      (Math.random() - 0.5) * 0.05,
-    );
+    // const jitter = new THREE.Vector3(
+    //   (Math.random() - 0.5) * 0.05,
+    //   0,
+    //   (Math.random() - 0.5) * 0.05,
+    // );
     leashedBox.position.add(
       leashVec.multiplyScalar(
         (leashDist - leashMaxLength) * leashStrength + dogSpeed,
