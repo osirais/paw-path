@@ -61,20 +61,42 @@ export function genChunk() {
   grass.rotation.x = -Math.PI / 2;
   grass.position.y = 0.02;
   group.add(grass);
+  const treeCount = 5;
+  const dummy = new THREE.Object3D();
 
-  for (let i = 0; i < 5; i++) {
+  const trunkMesh = new THREE.InstancedMesh(
+    trunkGeometry,
+    trunkMaterial,
+    treeCount,
+  );
+  trunkMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+  const leavesMesh = new THREE.InstancedMesh(
+    leavesGeometry,
+    leavesMaterial,
+    treeCount,
+  );
+  leavesMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+  for (let i = 0; i < treeCount; i++) {
     const x = rng(-grassSize / 2 + treeMargin, grassSize / 2 - treeMargin);
     const z = rng(-grassSize / 2 + treeMargin, grassSize / 2 - treeMargin);
     const y = 0.75;
 
-    const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-    trunk.position.set(x, y, z);
-    group.add(trunk);
+    dummy.position.set(x, y, z);
+    dummy.updateMatrix();
+    trunkMesh.setMatrixAt(i, dummy.matrix);
 
-    const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
-    leaves.position.set(x, y + 1.5, z);
-    group.add(leaves);
+    dummy.position.set(x, y + 1.5, z);
+    dummy.updateMatrix();
+    leavesMesh.setMatrixAt(i, dummy.matrix);
   }
+
+  trunkMesh.instanceMatrix.needsUpdate = true;
+  leavesMesh.instanceMatrix.needsUpdate = true;
+
+  group.add(trunkMesh);
+  group.add(leavesMesh);
 
   for (let i = 0; i < 2; i++) {
     const width = rng(1.5, 3);
