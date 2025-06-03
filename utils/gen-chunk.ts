@@ -27,21 +27,18 @@ const grassGeometry = new THREE.PlaneGeometry(grassSize, grassSize);
 const trunkGeometry = new THREE.CylinderGeometry(0.15, 0.15, 1.5);
 const leavesGeometry = new THREE.ConeGeometry(0.7, 1.8, 8);
 
-const streetMaterial = new THREE.MeshStandardMaterial({
+const streetMaterial = new THREE.MeshLambertMaterial({
   color: COLOR_STREET,
-  side: THREE.DoubleSide,
 });
-const sidewalkMaterial = new THREE.MeshStandardMaterial({
+const sidewalkMaterial = new THREE.MeshLambertMaterial({
   color: COLOR_SIDEWALK,
-  side: THREE.DoubleSide,
 });
-const grassMaterial = new THREE.MeshStandardMaterial({
+const grassMaterial = new THREE.MeshLambertMaterial({
   color: COLOR_GROUND,
-  side: THREE.DoubleSide,
 });
-const trunkMaterial = new THREE.MeshStandardMaterial({ color: COLOR_TRUNK });
-const leavesMaterial = new THREE.MeshStandardMaterial({ color: COLOR_LEAVES });
-const buildingMaterial = new THREE.MeshStandardMaterial({
+const trunkMaterial = new THREE.MeshLambertMaterial({ color: COLOR_TRUNK });
+const leavesMaterial = new THREE.MeshLambertMaterial({ color: COLOR_LEAVES });
+const buildingMaterial = new THREE.MeshLambertMaterial({
   color: COLOR_BUILDING,
 });
 
